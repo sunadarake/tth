@@ -10,5 +10,7 @@
         "initializer_list": "cpp",
         "span": "cpp",
         "thread": "cpp"
-    }
+    },
+    "C_Cpp.formatting": "clangFormat",
+    "C_Cpp.clang_format_style": "{ BasedOnStyle: Google, AllowShortFunctionsOnASingleLine: All, BreakBeforeBraces: Attach, IndentWidth: 4, UseTab: Never }"
 }
