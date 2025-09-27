@@ -1,4 +1,7 @@
 #!/usr/bin/perl
+#
+# test CGI script for tth
+#
 
 use strict;
 use warnings;
