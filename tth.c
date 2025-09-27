@@ -1,3 +1,10 @@
+/*
+ * tth - tiny tiny httpd v1.0
+ * Linux用の軽量HTTPサーバー実装
+ * 静的ファイル配信とCGI実行をサポート
+ * マルチスレッド対応でHTTP/1.1準拠
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
