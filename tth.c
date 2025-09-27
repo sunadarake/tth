@@ -34,12 +34,14 @@
 volatile sig_atomic_t server_running = 1;
 int global_server_socket = INVALID_SOCKET;
 
+/* サーバー設定情報を保持する構造体 */
 typedef struct {
     char root_dir[MAX_PATH_LEN];
     int port;
     char host[256];
 } Config;
 
+/* HTTPレスポンスの構造体 */
 typedef struct {
     int status_code;
     char status_text[64];
@@ -49,6 +51,7 @@ typedef struct {
     size_t body_length;
 } HttpResponse;
 
+/* HTTPリクエストの構造体 */
 typedef struct {
     char method[16];
     char path[MAX_PATH_LEN];
@@ -59,12 +62,14 @@ typedef struct {
     size_t body_length;
 } HttpRequest;
 
+/* クライアント接続データの構造体 */
 typedef struct {
     int client_socket;
     Config config;
     char client_ip[INET_ADDRSTRLEN];
 } ClientData;
 
+/* SIGINTシグナルをキャッチしてサーバーを終了 */
 void signal_handler(int signal) {
     if (signal == SIGINT) {
         printf("\n\nサーバーを停止しています...\n");
@@ -80,6 +85,7 @@ void signal_handler(int signal) {
     }
 }
 
+/* 文字列の前後の空白を除去 */
 char *trim(char *str) {
     char *end;
 
@@ -94,6 +100,7 @@ char *trim(char *str) {
     return str;
 }
 
+/* ファイルがCGIスクリプトかどうかを判定 */
 int is_cgi_file(const char *file_path) {
     char *ext = strrchr(file_path, '.');
     if (ext) {
@@ -117,16 +124,19 @@ int is_cgi_file(const char *file_path) {
     return 0;
 }
 
+/* ファイルの存在を確認 */
 int file_exists(const char *path) {
     struct stat buffer;
     return (stat(path, &buffer) == 0 && S_ISREG(buffer.st_mode));
 }
 
+/* ディレクトリの存在を確認 */
 int dir_exists(const char *path) {
     struct stat buffer;
     return (stat(path, &buffer) == 0 && S_ISDIR(buffer.st_mode));
 }
 
+/* URLエンコードされた文字列をデコード */
 void url_decode(const char *src, char *dest, size_t dest_size) {
     size_t i = 0, j = 0;
     while (src[i] && j < dest_size - 1) {
@@ -148,6 +158,7 @@ void url_decode(const char *src, char *dest, size_t dest_size) {
     dest[j] = '\0';
 }
 
+/* ファイル拡張子からMIMEタイプを取得 */
 const char *get_mime_type(const char *path) {
     const char *ext = strrchr(path, '.');
     if (!ext) return "application/octet-stream";
@@ -167,6 +178,7 @@ const char *get_mime_type(const char *path) {
     return "application/octet-stream";
 }
 
+/* ファイルを読み込んでメモリにロード */
 char *read_file(const char *path, size_t *file_size) {
     FILE *file = fopen(path, "rb");
     if (!file) return NULL;
@@ -189,6 +201,7 @@ char *read_file(const char *path, size_t *file_size) {
     return content;
 }
 
+/* URLパスからパスとクエリストリングを分離 */
 void parse_path_and_query(const char *path, char *clean_path, char *query_string) {
     const char *query_pos = strchr(path, '?');
     if (query_pos) {
@@ -202,6 +215,7 @@ void parse_path_and_query(const char *path, char *clean_path, char *query_string
     }
 }
 
+/* CGIスクリプト名とPATH_INFOを分離 */
 void parse_script_and_path_info(const char *path, const char *root_dir, char *script_name, char *path_info) {
     strcpy(script_name, path);
     path_info[0] = '\0';
@@ -234,6 +248,7 @@ void parse_script_and_path_info(const char *path, const char *root_dir, char *sc
     }
 }
 
+/* スクリプトのshebangからインタープリターを取得 */
 char *get_interpreter_from_shebang(const char *script_path) {
     FILE *file = fopen(script_path, "r");
     if (!file) return NULL;
@@ -261,6 +276,7 @@ char *get_interpreter_from_shebang(const char *script_path) {
     return result;
 }
 
+/* CGIスクリプトを子プロセスで実行して出力を取得 */
 char *execute_cgi(const char *script_path, const HttpRequest *request, const char *root_dir, const Config *config, const char *client_ip) {
     char clean_path[MAX_PATH_LEN], query_string[MAX_PATH_LEN];
     parse_path_and_query(request->path, clean_path, query_string);
@@ -371,6 +387,7 @@ char *execute_cgi(const char *script_path, const HttpRequest *request, const cha
     }
 }
 
+/* リクエストのログを色付きで出力 */
 void log_request(const char *path, int status_code, const char *status_text) {
     time_t now = time(NULL);
     struct tm *tm_info = localtime(&now);
@@ -394,12 +411,14 @@ void log_request(const char *path, int status_code, const char *status_text) {
            color, status_code, path, color, status_text);
 }
 
+/* 生のHTTPリクエスト文字列をパース */
 void parse_http_request(const char *raw_request, HttpRequest *request) {
     memset(request, 0, sizeof(HttpRequest));
 
     char *request_copy = strdup(raw_request);
     char *line = strtok(request_copy, "\r\n");
 
+    // リクエストラインをパース
     if (line) {
         char method[16], path[MAX_PATH_LEN], version[16];
         if (sscanf(line, "%15s %1023s %15s", method, path, version) == 3) {
@@ -409,6 +428,7 @@ void parse_http_request(const char *raw_request, HttpRequest *request) {
         }
     }
 
+    // ヘッダーをパース
     while ((line = strtok(NULL, "\r\n")) && strlen(line) > 0) {
         if (request->header_count < MAX_HEADERS) {
             strcpy(request->headers[request->header_count], line);
@@ -425,6 +445,7 @@ void parse_http_request(const char *raw_request, HttpRequest *request) {
     free(request_copy);
 }
 
+/* HTTPレスポンス構造体から文字列を作成 */
 char *create_http_response(const HttpResponse *response) {
     size_t response_size = 1024 + response->body_length;
     char *response_str = malloc(response_size);
@@ -446,6 +467,7 @@ char *create_http_response(const HttpResponse *response) {
     return response_str;
 }
 
+/* HTTPリクエストを処理してレスポンスを生成 */
 HttpResponse handle_request(const HttpRequest *request, const Config *config, const char *client_ip) {
     HttpResponse response;
     memset(&response, 0, sizeof(response));
@@ -565,6 +587,7 @@ HttpResponse handle_request(const HttpRequest *request, const Config *config, co
     return response;
 }
 
+/* クライアント接続をスレッドで処理 */
 void *handle_client(void *arg) {
     ClientData *data = (ClientData *)arg;
 
@@ -598,6 +621,7 @@ void *handle_client(void *arg) {
     return NULL;
 }
 
+/* HTTPサーバーを開始してメインループを実行 */
 void start_server(const Config *config) {
     signal(SIGINT, signal_handler);
 
@@ -689,6 +713,7 @@ void start_server(const Config *config) {
     printf("サーバーが停止しました。\n");
 }
 
+/* ヘルプメッセージを表示 */
 void show_help() {
     printf("tth - tiny tiny httpd v1.0\n");
     printf("Usage: tth [options]\n");
@@ -701,11 +726,13 @@ void show_help() {
     printf("  --help               Show this help message\n");
 }
 
+/* バージョン情報を表示 */
 void show_version() {
     printf("tth - tiny tiny httpd v1.0\n");
     printf("Built with C\n");
 }
 
+/* メイン関数 - コマンドライン引数を処理してサーバーを起動 */
 int main(int argc, char *argv[]) {
     Config config;
     strcpy(config.root_dir, ".");
