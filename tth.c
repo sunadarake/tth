@@ -5,22 +5,22 @@
  * マルチスレッド対応でHTTP/1.1準拠
  */
 
+#include <arpa/inet.h>
+#include <ctype.h>
+#include <dirent.h>
+#include <errno.h>
+#include <netinet/in.h>
+#include <pthread.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <signal.h>
-#include <errno.h>
-#include <time.h>
-#include <ctype.h>
-#include <sys/socket.h>
-#include <sys/wait.h>
 #include <sys/select.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <dirent.h>
-#include <pthread.h>
+#include <sys/wait.h>
+#include <time.h>
+#include <unistd.h>
 
 #define SOCKET int
 #define INVALID_SOCKET -1
@@ -202,7 +202,8 @@ char *read_file(const char *path, size_t *file_size) {
 }
 
 /* URLパスからパスとクエリストリングを分離 */
-void parse_path_and_query(const char *path, char *clean_path, char *query_string) {
+void parse_path_and_query(const char *path, char *clean_path,
+                          char *query_string) {
     const char *query_pos = strchr(path, '?');
     if (query_pos) {
         size_t path_len = query_pos - path;
@@ -216,7 +217,8 @@ void parse_path_and_query(const char *path, char *clean_path, char *query_string
 }
 
 /* CGIスクリプト名とPATH_INFOを分離 */
-void parse_script_and_path_info(const char *path, const char *root_dir, char *script_name, char *path_info) {
+void parse_script_and_path_info(const char *path, const char *root_dir,
+                                char *script_name, char *path_info) {
     strcpy(script_name, path);
     path_info[0] = '\0';
 
@@ -277,7 +279,9 @@ char *get_interpreter_from_shebang(const char *script_path) {
 }
 
 /* CGIスクリプトを子プロセスで実行して出力を取得 */
-char *execute_cgi(const char *script_path, const HttpRequest *request, const char *root_dir, const Config *config, const char *client_ip) {
+char *execute_cgi(const char *script_path, const HttpRequest *request,
+                  const char *root_dir, const Config *config,
+                  const char *client_ip) {
     char clean_path[MAX_PATH_LEN], query_string[MAX_PATH_LEN];
     parse_path_and_query(request->path, clean_path, query_string);
 
@@ -289,7 +293,8 @@ char *execute_cgi(const char *script_path, const HttpRequest *request, const cha
     int pipefd[2];
     if (pipe(pipefd) == -1) {
         if (interpreter) free(interpreter);
-        return strdup("Status: 500 Internal Server Error\r\n\r\nCGI execution failed");
+        return strdup(
+            "Status: 500 Internal Server Error\r\n\r\nCGI execution failed");
     }
 
     pid_t pid = fork();
@@ -297,7 +302,8 @@ char *execute_cgi(const char *script_path, const HttpRequest *request, const cha
         close(pipefd[0]);
         close(pipefd[1]);
         if (interpreter) free(interpreter);
-        return strdup("Status: 500 Internal Server Error\r\n\r\nCGI execution failed");
+        return strdup(
+            "Status: 500 Internal Server Error\r\n\r\nCGI execution failed");
     }
 
     if (pid == 0) {
@@ -311,12 +317,14 @@ char *execute_cgi(const char *script_path, const HttpRequest *request, const cha
         setenv("PATH_INFO", path_info, 1);
 
         char path_translated[MAX_PATH_LEN];
-        snprintf(path_translated, sizeof(path_translated), "%s%s", root_dir, path_info);
+        snprintf(path_translated, sizeof(path_translated), "%s%s", root_dir,
+                 path_info);
         setenv("PATH_TRANSLATED", path_translated, 1);
         setenv("QUERY_STRING", query_string, 1);
 
         char content_length[32];
-        snprintf(content_length, sizeof(content_length), "%zu", request->body_length);
+        snprintf(content_length, sizeof(content_length), "%zu",
+                 request->body_length);
         setenv("CONTENT_LENGTH", content_length, 1);
 
         for (int i = 0; i < request->header_count; i++) {
@@ -405,10 +413,12 @@ void log_request(const char *path, int status_code, const char *status_text) {
         color = "\033[0m";
     }
 
-    printf("\033[36m%04d-%02d-%02d %02d:%02d:%02d\033[0m %s%d\033[0m \033[34m%s\033[0m %s%s\033[0m\n",
-           tm_info->tm_year + 1900, tm_info->tm_mon + 1, tm_info->tm_mday,
-           tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec,
-           color, status_code, path, color, status_text);
+    printf(
+        "\033[36m%04d-%02d-%02d %02d:%02d:%02d\033[0m %s%d\033[0m "
+        "\033[34m%s\033[0m %s%s\033[0m\n",
+        tm_info->tm_year + 1900, tm_info->tm_mon + 1, tm_info->tm_mday,
+        tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec, color, status_code,
+        path, color, status_text);
 }
 
 /* 生のHTTPリクエスト文字列をパース */
@@ -450,11 +460,12 @@ char *create_http_response(const HttpResponse *response) {
     size_t response_size = 1024 + response->body_length;
     char *response_str = malloc(response_size);
 
-    int offset = snprintf(response_str, response_size,
-                         "HTTP/1.1 %d %s\r\n", response->status_code, response->status_text);
+    int offset = snprintf(response_str, response_size, "HTTP/1.1 %d %s\r\n",
+                          response->status_code, response->status_text);
 
     for (int i = 0; i < response->header_count; i++) {
-        offset += snprintf(response_str + offset, response_size - offset, "%s\r\n", response->headers[i]);
+        offset += snprintf(response_str + offset, response_size - offset,
+                           "%s\r\n", response->headers[i]);
     }
 
     offset += snprintf(response_str + offset, response_size - offset, "\r\n");
@@ -468,7 +479,8 @@ char *create_http_response(const HttpResponse *response) {
 }
 
 /* HTTPリクエストを処理してレスポンスを生成 */
-HttpResponse handle_request(const HttpRequest *request, const Config *config, const char *client_ip) {
+HttpResponse handle_request(const HttpRequest *request, const Config *config,
+                            const char *client_ip) {
     HttpResponse response;
     memset(&response, 0, sizeof(response));
 
@@ -482,12 +494,15 @@ HttpResponse handle_request(const HttpRequest *request, const Config *config, co
     if (strstr(decoded_path, "..")) {
         response.status_code = 403;
         strcpy(response.status_text, "Forbidden");
-        strcpy(response.headers[response.header_count++], "Content-Type: text/html");
-        response.body = strdup("<html><body><h1>403 Forbidden</h1></body></html>");
+        strcpy(response.headers[response.header_count++],
+               "Content-Type: text/html");
+        response.body =
+            strdup("<html><body><h1>403 Forbidden</h1></body></html>");
         response.body_length = strlen(response.body);
 
         char content_length[64];
-        snprintf(content_length, sizeof(content_length), "Content-Length: %zu", response.body_length);
+        snprintf(content_length, sizeof(content_length), "Content-Length: %zu",
+                 response.body_length);
         strcpy(response.headers[response.header_count++], content_length);
 
         log_request(request->path, response.status_code, response.status_text);
@@ -497,14 +512,17 @@ HttpResponse handle_request(const HttpRequest *request, const Config *config, co
     char file_path[MAX_PATH_LEN];
     if (strcmp(decoded_path, "/") == 0 || strlen(decoded_path) == 0) {
         if (strlen(config->root_dir) + 12 < sizeof(file_path)) {
-            int ret = snprintf(file_path, sizeof(file_path), "%s/index.html", config->root_dir);
+            int ret = snprintf(file_path, sizeof(file_path), "%s/index.html",
+                               config->root_dir);
             (void)ret;  // Suppress unused variable warning
         } else {
             strcpy(file_path, "/index.html");
         }
     } else {
-        if (strlen(config->root_dir) + strlen(decoded_path) + 1 < sizeof(file_path)) {
-            int ret = snprintf(file_path, sizeof(file_path), "%s%s", config->root_dir, decoded_path);
+        if (strlen(config->root_dir) + strlen(decoded_path) + 1 <
+            sizeof(file_path)) {
+            int ret = snprintf(file_path, sizeof(file_path), "%s%s",
+                               config->root_dir, decoded_path);
             (void)ret;  // Suppress unused variable warning
         } else {
             strncpy(file_path, decoded_path, sizeof(file_path) - 1);
@@ -514,7 +532,8 @@ HttpResponse handle_request(const HttpRequest *request, const Config *config, co
 
     if (file_exists(file_path)) {
         if (is_cgi_file(file_path)) {
-            char *cgi_output = execute_cgi(file_path, request, config->root_dir, config, client_ip);
+            char *cgi_output = execute_cgi(file_path, request, config->root_dir,
+                                           config, client_ip);
 
             char *header_end = strstr(cgi_output, "\r\n\r\n");
             if (!header_end) {
@@ -533,7 +552,8 @@ HttpResponse handle_request(const HttpRequest *request, const Config *config, co
                     if (strncmp(line, "Status:", 7) == 0) {
                         int status_code;
                         char status_text[64];
-                        if (sscanf(line + 7, "%d %63s", &status_code, status_text) >= 1) {
+                        if (sscanf(line + 7, "%d %63s", &status_code,
+                                   status_text) >= 1) {
                             response.status_code = status_code;
                             if (strlen(status_text) > 0) {
                                 strcpy(response.status_text, status_text);
@@ -541,8 +561,10 @@ HttpResponse handle_request(const HttpRequest *request, const Config *config, co
                         }
                     } else if (strncmp(line, "Content-Type:", 13) == 0) {
                         char header[MAX_HEADER_LEN];
-                        snprintf(header, sizeof(header), "Content-Type: %s", trim(line + 13));
-                        strcpy(response.headers[response.header_count++], header);
+                        snprintf(header, sizeof(header), "Content-Type: %s",
+                                 trim(line + 13));
+                        strcpy(response.headers[response.header_count++],
+                               header);
                     }
                     line = strtok(NULL, "\r\n");
                 }
@@ -552,7 +574,8 @@ HttpResponse handle_request(const HttpRequest *request, const Config *config, co
             } else {
                 response.body = cgi_output;
                 response.body_length = strlen(cgi_output);
-                strcpy(response.headers[response.header_count++], "Content-Type: text/html");
+                strcpy(response.headers[response.header_count++],
+                       "Content-Type: text/html");
             }
         } else {
             size_t file_size;
@@ -560,12 +583,16 @@ HttpResponse handle_request(const HttpRequest *request, const Config *config, co
             if (!content) {
                 response.status_code = 500;
                 strcpy(response.status_text, "Internal Server Error");
-                strcpy(response.headers[response.header_count++], "Content-Type: text/html");
-                response.body = strdup("<html><body><h1>500 Internal Server Error</h1></body></html>");
+                strcpy(response.headers[response.header_count++],
+                       "Content-Type: text/html");
+                response.body = strdup(
+                    "<html><body><h1>500 Internal Server "
+                    "Error</h1></body></html>");
                 response.body_length = strlen(response.body);
             } else {
                 char content_type[128];
-                snprintf(content_type, sizeof(content_type), "Content-Type: %s", get_mime_type(file_path));
+                snprintf(content_type, sizeof(content_type), "Content-Type: %s",
+                         get_mime_type(file_path));
                 strcpy(response.headers[response.header_count++], content_type);
                 response.body = content;
                 response.body_length = file_size;
@@ -574,13 +601,16 @@ HttpResponse handle_request(const HttpRequest *request, const Config *config, co
     } else {
         response.status_code = 404;
         strcpy(response.status_text, "Not Found");
-        strcpy(response.headers[response.header_count++], "Content-Type: text/html");
-        response.body = strdup("<html><body><h1>404 Not Found</h1></body></html>");
+        strcpy(response.headers[response.header_count++],
+               "Content-Type: text/html");
+        response.body =
+            strdup("<html><body><h1>404 Not Found</h1></body></html>");
         response.body_length = strlen(response.body);
     }
 
     char content_length[64];
-    snprintf(content_length, sizeof(content_length), "Content-Length: %zu", response.body_length);
+    snprintf(content_length, sizeof(content_length), "Content-Length: %zu",
+             response.body_length);
     strcpy(response.headers[response.header_count++], content_length);
 
     log_request(request->path, response.status_code, response.status_text);
@@ -598,7 +628,8 @@ void *handle_client(void *arg) {
     }
 
     char buffer[BUFFER_SIZE];
-    int bytes_received = recv(data->client_socket, buffer, sizeof(buffer) - 1, 0);
+    int bytes_received =
+        recv(data->client_socket, buffer, sizeof(buffer) - 1, 0);
 
     if (bytes_received > 0 && server_running) {
         buffer[bytes_received] = '\0';
@@ -606,7 +637,8 @@ void *handle_client(void *arg) {
         HttpRequest request;
         parse_http_request(buffer, &request);
 
-        HttpResponse response = handle_request(&request, &data->config, data->client_ip);
+        HttpResponse response =
+            handle_request(&request, &data->config, data->client_ip);
         char *response_str = create_http_response(&response);
 
         send(data->client_socket, response_str, strlen(response_str), 0);
@@ -641,7 +673,8 @@ void start_server(const Config *config) {
     server_addr.sin_port = htons(config->port);
     server_addr.sin_addr.s_addr = inet_addr(config->host);
 
-    if (bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) == SOCKET_ERROR) {
+    if (bind(server_socket, (struct sockaddr *)&server_addr,
+             sizeof(server_addr)) == SOCKET_ERROR) {
         fprintf(stderr, "Failed to bind socket\n");
         close(server_socket);
         return;
@@ -670,7 +703,8 @@ void start_server(const Config *config) {
         timeout.tv_sec = 1;
         timeout.tv_usec = 0;
 
-        int select_result = select(server_socket + 1, &read_fds, NULL, NULL, &timeout);
+        int select_result =
+            select(server_socket + 1, &read_fds, NULL, NULL, &timeout);
 
         if (select_result < 0) {
             if (errno == EINTR) {
@@ -684,7 +718,8 @@ void start_server(const Config *config) {
             continue;
         }
 
-        int client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_len);
+        int client_socket =
+            accept(server_socket, (struct sockaddr *)&client_addr, &client_len);
 
         if (client_socket == INVALID_SOCKET) {
             if (server_running) {
@@ -719,7 +754,9 @@ void show_help() {
     printf("Usage: tth [options]\n");
     printf("\n");
     printf("Options:\n");
-    printf("  -r, --root_dir DIR    Set document root directory (default: current directory)\n");
+    printf(
+        "  -r, --root_dir DIR    Set document root directory (default: current "
+        "directory)\n");
     printf("  -p, --port PORT       Set port number (default: 8080)\n");
     printf("  -h, --host HOST       Set host address (default: 127.0.0.1)\n");
     printf("  -v, --version         Show version information\n");
@@ -743,20 +780,28 @@ int main(int argc, char *argv[]) {
         if (strcmp(argv[i], "--help") == 0) {
             show_help();
             return 0;
-        } else if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--version") == 0) {
+        } else if (strcmp(argv[i], "-v") == 0 ||
+                   strcmp(argv[i], "--version") == 0) {
             show_version();
             return 0;
-        } else if ((strcmp(argv[i], "-r") == 0 || strcmp(argv[i], "--root_dir") == 0) && i + 1 < argc) {
+        } else if ((strcmp(argv[i], "-r") == 0 ||
+                    strcmp(argv[i], "--root_dir") == 0) &&
+                   i + 1 < argc) {
             strcpy(config.root_dir, argv[++i]);
-        } else if ((strcmp(argv[i], "-p") == 0 || strcmp(argv[i], "--port") == 0) && i + 1 < argc) {
+        } else if ((strcmp(argv[i], "-p") == 0 ||
+                    strcmp(argv[i], "--port") == 0) &&
+                   i + 1 < argc) {
             config.port = atoi(argv[++i]);
-        } else if ((strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--host") == 0) && i + 1 < argc) {
+        } else if ((strcmp(argv[i], "-h") == 0 ||
+                    strcmp(argv[i], "--host") == 0) &&
+                   i + 1 < argc) {
             strcpy(config.host, argv[++i]);
         }
     }
 
     if (!dir_exists(config.root_dir)) {
-        fprintf(stderr, "Error: Root directory '%s' does not exist\n", config.root_dir);
+        fprintf(stderr, "Error: Root directory '%s' does not exist\n",
+                config.root_dir);
         return 1;
     }
 
