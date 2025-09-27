@@ -11,6 +11,7 @@
 #include <csignal>
 #include <atomic>
 #include <chrono>
+#include <iomanip>
 
 #include <sys/socket.h>
 #include <sys/wait.h>
@@ -493,6 +494,35 @@ std::string execute_cgi(const std::string &script_path, const HttpRequest &reque
 
     return result;
 }
+
+// ログ出力関数
+void log_request(const std::string &path, int status_code, const std::string &status_text)
+{
+    auto now = std::chrono::system_clock::now();
+    auto time_t = std::chrono::system_clock::to_time_t(now);
+    auto tm = *std::localtime(&time_t);
+
+    // ステータスコードに応じて色を決定
+    std::string color;
+    if (status_code >= 200 && status_code < 300) {
+        color = "\033[32m"; // 緑色 (成功)
+    } else if (status_code >= 300 && status_code < 400) {
+        color = "\033[33m"; // 黄色 (リダイレクト)
+    } else if (status_code >= 400 && status_code < 500) {
+        color = "\033[31m"; // 赤色 (クライアントエラー)
+    } else if (status_code >= 500) {
+        color = "\033[35m"; // マゼンタ (サーバーエラー)
+    } else {
+        color = "\033[0m";  // デフォルト色
+    }
+
+    std::cout << "\033[36m" << std::put_time(&tm, "%Y-%m-%d %H:%M:%S") << "\033[0m"
+              << " " << color << status_code << "\033[0m"
+              << " \033[34m" << path << "\033[0m"
+              << " " << color << status_text << "\033[0m"
+              << std::endl;
+}
+
 // リクエスト処理
 HttpResponse handle_request(const HttpRequest &request, const Config &config, const std::string &client_ip)
 {
@@ -604,6 +634,10 @@ HttpResponse handle_request(const HttpRequest &request, const Config &config, co
     }
 
     response.headers["Content-Length"] = std::to_string(response.body.length());
+
+    // ログ出力
+    log_request(request.path, response.status_code, response.status_text);
+
     return response;
 }
 
